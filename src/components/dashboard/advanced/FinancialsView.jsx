@@ -27,12 +27,20 @@ export default function FinancialsView() {
 
     useEffect(() => {
         async function fetchData() {
+            const cached = sessionStorage.getItem('financials_data');
+            if (cached) {
+                setFinData(JSON.parse(cached));
+                setLoading(false);
+                return;
+            }
+
             try {
                 const res = await fetch('/api/financials');
                 const data = await res.json();
 
                 if (data.hasData) {
                     setFinData(data);
+                    sessionStorage.setItem('financials_data', JSON.stringify(data));
                 } else if (data.error) {
                     console.warn("Financials API Error:", data.error);
                     setError(data.error);

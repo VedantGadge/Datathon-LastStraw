@@ -15,10 +15,21 @@ export default function CrossTeamView() {
 
     useEffect(() => {
         async function fetchData() {
+            const cached = sessionStorage.getItem('crossteam_data');
+            if (cached) {
+                setData(JSON.parse(cached));
+                setLoading(false);
+                return;
+            }
+
             try {
                 const res = await fetch('/api/collaboration');
                 const result = await res.json();
-                setData(result);
+
+                if (result) {
+                    setData(result);
+                    sessionStorage.setItem('crossteam_data', JSON.stringify(result));
+                }
             } catch (err) {
                 console.error("Failed to fetch collaboration data:", err);
                 setError(err.message);

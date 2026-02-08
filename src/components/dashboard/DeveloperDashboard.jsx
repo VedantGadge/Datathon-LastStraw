@@ -14,6 +14,27 @@ export default function DeveloperDashboard() {
 
     useEffect(() => {
         async function fetchAll() {
+            // Check cache first
+            const cachedDora = sessionStorage.getItem('dev_dora');
+            const cachedQuality = sessionStorage.getItem('dev_quality');
+            const cachedRecs = sessionStorage.getItem('dev_recs');
+            const cachedPipes = sessionStorage.getItem('dev_pipelines');
+
+            if (cachedDora && cachedQuality && cachedRecs && cachedPipes) {
+                const doraData = JSON.parse(cachedDora);
+                const pipesData = JSON.parse(cachedPipes);
+
+                setDoraData({
+                    ...doraData,
+                    pipelines: pipesData.pipelines,
+                    pipelineSummary: pipesData.summary
+                });
+                setCodeQuality(JSON.parse(cachedQuality));
+                setRecommendations(JSON.parse(cachedRecs));
+                setLoading(false);
+                return;
+            }
+
             try {
                 const [doraRes, qualityRes, recsRes, pipesRes] = await Promise.all([
                     fetch('/api/dora'),
@@ -26,6 +47,12 @@ export default function DeveloperDashboard() {
                 const pipesData = await pipesRes.json();
                 const qualityData = await qualityRes.json();
                 const recsData = await recsRes.json();
+
+                // Save to cache
+                sessionStorage.setItem('dev_dora', JSON.stringify(doraData));
+                sessionStorage.setItem('dev_pipelines', JSON.stringify(pipesData));
+                sessionStorage.setItem('dev_quality', JSON.stringify(qualityData));
+                sessionStorage.setItem('dev_recs', JSON.stringify(recsData));
 
                 // Merge pipeline data into DORA data but preserve DORA summary
                 setDoraData({
@@ -218,8 +245,8 @@ export default function DeveloperDashboard() {
                                         <div className="h-2 w-full bg-neutral-100 dark:bg-zinc-800 rounded-full overflow-hidden">
                                             <div
                                                 className={`h-full rounded-full ${item.name === "Coverage" ? "bg-blue-500" :
-                                                        item.name === "Bugs" ? "bg-red-500" :
-                                                            item.name === "Complexity" ? "bg-amber-500" : "bg-purple-500"
+                                                    item.name === "Bugs" ? "bg-red-500" :
+                                                        item.name === "Complexity" ? "bg-amber-500" : "bg-purple-500"
                                                     }`}
                                                 style={{ width: `${item.value}%` }}
                                             />

@@ -1,23 +1,10 @@
 import { NextResponse } from "next/server";
-import { Pool } from "pg";
-
-const pool = new Pool({
-  user: process.env.POSTGRES_USERNAME || "postgres",
-  password: process.env.POSTGRES_PASSWORD || "KJDATATHON2026!",
-  host:
-    process.env.POSTGRES_HOST ||
-    "engineering-intelligence1.chwmsemq65p7.ap-south-1.rds.amazonaws.com",
-  port: parseInt(process.env.POSTGRES_PORT || "5432"),
-  database: process.env.POSTGRES_DATABASE || "engineering_intelligence",
-  ssl: { rejectUnauthorized: false },
-});
+import { query } from "@/lib/db";
 
 export async function GET() {
   try {
-    const client = await pool.connect();
-
     // Get employees with team info
-    const employeesRes = await client.query(`
+    const employeesRes = await query(`
       SELECT e.id, e.name, e.email, e.role, e.department, e.hire_date, t.name as team_name
       FROM employees e
       LEFT JOIN teams t ON e.team_id = t.id
@@ -25,20 +12,20 @@ export async function GET() {
     `);
 
     // Get teams
-    const teamsRes = await client.query(`
+    const teamsRes = await query(`
       SELECT id, name, description
       FROM teams
     `);
 
     // Get employee count by department
-    const deptCountRes = await client.query(`
+    const deptCountRes = await query(`
       SELECT department, COUNT(*) as count
       FROM employees
       GROUP BY department
     `);
 
     // Calculate tenure distribution
-    const tenureRes = await client.query(`
+    const tenureRes = await query(`
       SELECT 
         CASE 
           WHEN hire_date > NOW() - INTERVAL '1 year' THEN 'New (<1yr)'
@@ -50,8 +37,6 @@ export async function GET() {
       WHERE hire_date IS NOT NULL
       GROUP BY tenure_bucket
     `);
-
-    client.release();
 
     return NextResponse.json({
       hasData: true,
