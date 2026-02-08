@@ -1,0 +1,61 @@
+=== DATABASE AUDIT REPORT ===
+Timestamp: 2026-02-07T20:26:04.370Z
+
+========== POSTGRESQL ==========
+Tables found: 23
+  - identity_mappings: 30 rows
+  - teams: 4 rows
+  - embeddings: 32 rows
+  - employees: 18 rows
+  - projects: 14 rows
+  - project_assignments: 22 rows
+  - agent_user_preferences: 0 rows
+  - agent_review_sessions: 0 rows
+  - tasks: 0 rows
+  - task_events: 0 rows
+  - task_participants: 0 rows
+  - check_ins: 0 rows
+  - one_on_one_notes: 0 rows
+  - goals: 0 rows
+  - goal_links: 0 rows
+  - feedback: 0 rows
+  - employee_monthly_metrics: 0 rows
+  - ci_pipelines: 10 rows
+  - notifications: 0 rows
+  - data_access_policies: 0 rows
+  - financial_metrics: 455 rows
+  - project_budgets: 3 rows
+  - sprints: 6 rows
+
+========== NEO4J ==========
+Node Labels: 7
+  - Developer
+  - Team
+  - Project
+  - Skill
+  - Sprint
+  - Feature
+  - SiloAlert
+Relationship Types: 5
+  - WORKS_ON
+  - CONTRIBUTES_TO
+  - HAS_SKILL
+  - DEPENDS_ON
+  - COLLABORATES_WITH
+Node Counts:
+  - Developer: 6
+  - Skill: 2
+  - Project: 18
+  - Team: 8
+  - SiloAlert: 2
+
+========== CLICKHOUSE ==========
+Tables found: 3
+  - .inner_id.85f98079-0b38-4c50-8801-07296d2dad6d
+  - dora_daily_metrics
+  - events
+    Rows: ERROR
+    Rows: 63
+    Rows: 124
+
+=== AUDIT COMPLETE ===
