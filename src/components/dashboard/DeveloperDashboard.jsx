@@ -232,7 +232,7 @@ export default function DeveloperDashboard() {
                                     <p className="text-xs text-neutral-500">Deployments & Builds</p>
                                 </div>
                                 <span className="text-[10px] text-neutral-400 ml-auto border border-neutral-200 dark:border-zinc-800 px-2 py-1 rounded bg-neutral-50 dark:bg-zinc-900">
-                                    {doraData?.pipelineSummary ? "PostgreSQL" : "Demo"}
+                                    {doraData?.pipelineSummary ? "" : ""}
                                 </span>
                             </div>
                             <div className="flex-1 w-full min-h-0">

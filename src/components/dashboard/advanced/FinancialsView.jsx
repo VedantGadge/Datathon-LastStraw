@@ -85,7 +85,7 @@ export default function FinancialsView() {
                 <div>
                     <h2 className="text-xl font-bold text-neutral-900 dark:text-white">Engineering Financials</h2>
                     <p className="text-sm text-neutral-500">
-                        {loading ? "Loading live data..." : "Real-time cost tracking from PostgreSQL"}
+                        {loading ? "Loading live data..." : ""}
                     </p>
                 </div>
             </div>

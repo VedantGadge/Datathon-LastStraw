@@ -98,7 +98,7 @@ export default function TeamLeadDashboard() {
                                 {loading ? "Loading..." : `Current: ${currentSprint.name}`}
                             </h2>
                             <p className="text-neutral-500 dark:text-neutral-400 mb-8 max-w-2xl">
-                                {sprintData?.hasData ? "Live data from PostgreSQL" : "Demo data"}
+                                {sprintData?.hasData ? "" : ""}
                             </p>
 
                             <div className="mb-6">
@@ -158,7 +158,6 @@ export default function TeamLeadDashboard() {
                                     <div className="flex justify-between items-center">
                                         <span className="text-sm text-neutral-600 dark:text-neutral-400">Data Source</span>
                                         <span className={`px-2 py-1 ${sprintData?.hasData ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400' : 'bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400'} text-xs font-bold rounded-full`}>
-                                            {sprintData?.hasData ? 'PostgreSQL' : 'Demo'}
                                         </span>
                                     </div>
                                 </div>
@@ -192,7 +191,7 @@ export default function TeamLeadDashboard() {
                             title="Active Blockers"
                             value={loading ? "..." : (blockersData?.summary?.total_blockers || 0)}
                             trend="active"
-                            trendValue={blockersData?.hasData ? "Live from PostgreSQL" : "Demo Data"}
+                            trendValue={blockersData?.hasData ? "" : ""}
                             icon={AlertCircle}
                             className="border-red-200 dark:border-red-900/50 bg-red-50 dark:bg-red-900/10"
                         />
@@ -210,7 +209,7 @@ export default function TeamLeadDashboard() {
                         <h3 className="text-lg font-semibold mb-4 text-neutral-900 dark:text-white flex items-center gap-2">
                             Sprint Velocity Trend
                             <span className="text-xs text-neutral-400 ml-auto">
-                                {sprintData?.hasData ? "Live from PostgreSQL" : "Demo Data"}
+                                {sprintData?.hasData ? "" : ""}
                             </span>
                         </h3>
                         <div className="h-[300px] w-full">

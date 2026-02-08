@@ -118,7 +118,7 @@ export default function HRDashboard() {
                             title="Total Workforce"
                             value={loading ? "..." : `${totalEmployees}`}
                             trend="up"
-                            trendValue={empData?.hasData ? "Live from PostgreSQL" : "Demo"}
+                            trendValue={empData?.hasData ? "" : ""}
                             icon={Users}
                         />
                         <MetricCard
@@ -151,7 +151,7 @@ export default function HRDashboard() {
                             <h3 className="text-lg font-semibold mb-4 text-neutral-900 dark:text-white flex items-center gap-2">
                                 Workforce by Department
                                 <span className="text-xs text-neutral-400 ml-auto">
-                                    {empData?.hasData ? "Live from PostgreSQL" : "Demo Data"}
+                                    {empData?.hasData ? "" : ""}
                                 </span>
                             </h3>
                             <div className="h-[300px] w-full">

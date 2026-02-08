@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { postSessionTurn, synthesizeAudio } from "@/api/hrVoiceAgent";
 import { cn } from "@/lib/utils";
+import { VoiceSphere3D } from "@/components/VoiceSphere3D";
 
 export function VoiceReviewSession({ sessionId, initialQuestion, onComplete }) {
     const [currentQuestion, setCurrentQuestion] = useState(initialQuestion);
@@ -14,8 +15,21 @@ export function VoiceReviewSession({ sessionId, initialQuestion, onComplete }) {
     const [transcript, setTranscript] = useState("");
     const [isProcessing, setIsProcessing] = useState(false);
     const [isSpeaking, setIsSpeaking] = useState(false);
+    const [voiceLevel, setVoiceLevel] = useState(0);
+    const [ttsLevel, setTtsLevel] = useState(0);
     const recognitionRef = useRef(null);
     const audioRef = useRef(null);
+    const micStreamRef = useRef(null);
+    const audioContextRef = useRef(null);
+    const analyserRef = useRef(null);
+    const rafIdRef = useRef(null);
+    const smoothedLevelRef = useRef(0);
+
+    const ttsAudioContextRef = useRef(null);
+    const ttsAnalyserRef = useRef(null);
+    const ttsSourceRef = useRef(null);
+    const ttsRafIdRef = useRef(null);
+    const ttsSmoothedLevelRef = useRef(0);
 
     // Initialize Speech Recognition
     useEffect(() => {
@@ -83,8 +97,108 @@ export function VoiceReviewSession({ sessionId, initialQuestion, onComplete }) {
         }
     }, [currentQuestion]);
 
+    // Mic level meter for the visual sphere (real amplitude while listening)
+    useEffect(() => {
+        const cleanup = () => {
+            if (rafIdRef.current) {
+                cancelAnimationFrame(rafIdRef.current);
+                rafIdRef.current = null;
+            }
+
+            if (micStreamRef.current) {
+                for (const track of micStreamRef.current.getTracks()) track.stop();
+                micStreamRef.current = null;
+            }
+
+            analyserRef.current = null;
+
+            if (audioContextRef.current) {
+                const ctx = audioContextRef.current;
+                audioContextRef.current = null;
+                try {
+                    ctx.close();
+                } catch {
+                    // ignore
+                }
+            }
+
+            smoothedLevelRef.current = 0;
+            setVoiceLevel(0);
+        };
+
+        const start = async () => {
+            if (typeof window === "undefined") return;
+            if (!navigator?.mediaDevices?.getUserMedia) return;
+
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                micStreamRef.current = stream;
+
+                const AudioContextImpl = window.AudioContext || window.webkitAudioContext;
+                const ctx = new AudioContextImpl();
+                audioContextRef.current = ctx;
+
+                if (ctx.state === "suspended") {
+                    try {
+                        await ctx.resume();
+                    } catch {
+                        // ignore
+                    }
+                }
+
+                const source = ctx.createMediaStreamSource(stream);
+                const analyser = ctx.createAnalyser();
+                analyser.fftSize = 1024;
+                analyser.smoothingTimeConstant = 0.6;
+                source.connect(analyser);
+                analyserRef.current = analyser;
+
+                const bufferLength = analyser.fftSize;
+                const data = new Uint8Array(bufferLength);
+
+                const tick = () => {
+                    if (!analyserRef.current) return;
+                    analyserRef.current.getByteTimeDomainData(data);
+
+                    // Compute RMS in [0..1]
+                    let sumSquares = 0;
+                    for (let i = 0; i < data.length; i++) {
+                        const v = (data[i] - 128) / 128;
+                        sumSquares += v * v;
+                    }
+                    const rms = Math.sqrt(sumSquares / data.length);
+
+                    // Slightly boost small signals and smooth
+                    const boosted = Math.min(1, rms * 2.2);
+                    const prev = smoothedLevelRef.current;
+                    const next = prev * 0.85 + boosted * 0.15;
+                    smoothedLevelRef.current = next;
+                    setVoiceLevel(next);
+
+                    rafIdRef.current = requestAnimationFrame(tick);
+                };
+
+                rafIdRef.current = requestAnimationFrame(tick);
+            } catch (e) {
+                // Permission denied or no mic; fall back to idle sphere
+                console.warn("Mic meter unavailable:", e);
+                cleanup();
+            }
+        };
+
+        if (isListening) {
+            start();
+        } else {
+            cleanup();
+        }
+
+        return cleanup;
+    }, [isListening]);
+
     const speakText = async (text) => {
         try {
+            stopTtsMeter();
+
             // Try to stop any current audio
             if (audioRef.current) {
                 audioRef.current.pause();
@@ -100,7 +214,11 @@ export function VoiceReviewSession({ sessionId, initialQuestion, onComplete }) {
             const audioBlob = await synthesizeAudio(text);
             const audioUrl = URL.createObjectURL(audioBlob);
             audioRef.current = new Audio(audioUrl);
-            audioRef.current.onended = () => setIsSpeaking(false);
+            audioRef.current.onended = () => {
+                stopTtsMeter();
+                setIsSpeaking(false);
+            };
+            startTtsMeter(audioRef.current);
             audioRef.current.play();
 
         } catch (err) {
@@ -118,8 +236,89 @@ export function VoiceReviewSession({ sessionId, initialQuestion, onComplete }) {
             audioRef.current.currentTime = 0;
         }
         window.speechSynthesis.cancel();
+        stopTtsMeter();
         setIsSpeaking(false);
     }
+
+    const stopTtsMeter = () => {
+        if (ttsRafIdRef.current) {
+            cancelAnimationFrame(ttsRafIdRef.current);
+            ttsRafIdRef.current = null;
+        }
+
+        ttsAnalyserRef.current = null;
+        ttsSourceRef.current = null;
+
+        if (ttsAudioContextRef.current) {
+            const ctx = ttsAudioContextRef.current;
+            ttsAudioContextRef.current = null;
+            try {
+                ctx.close();
+            } catch {
+                // ignore
+            }
+        }
+
+        ttsSmoothedLevelRef.current = 0;
+        setTtsLevel(0);
+    };
+
+    const startTtsMeter = async (audioEl) => {
+        if (typeof window === "undefined") return;
+        if (!audioEl) return;
+
+        try {
+            const AudioContextImpl = window.AudioContext || window.webkitAudioContext;
+            const ctx = new AudioContextImpl();
+            ttsAudioContextRef.current = ctx;
+
+            if (ctx.state === "suspended") {
+                try {
+                    await ctx.resume();
+                } catch {
+                    // ignore
+                }
+            }
+
+            const source = ctx.createMediaElementSource(audioEl);
+            const analyser = ctx.createAnalyser();
+            analyser.fftSize = 1024;
+            analyser.smoothingTimeConstant = 0.6;
+
+            // Route: media -> analyser -> speakers
+            source.connect(analyser);
+            analyser.connect(ctx.destination);
+
+            ttsSourceRef.current = source;
+            ttsAnalyserRef.current = analyser;
+
+            const data = new Uint8Array(analyser.fftSize);
+
+            const tick = () => {
+                if (!ttsAnalyserRef.current) return;
+                ttsAnalyserRef.current.getByteTimeDomainData(data);
+
+                let sumSquares = 0;
+                for (let i = 0; i < data.length; i++) {
+                    const v = (data[i] - 128) / 128;
+                    sumSquares += v * v;
+                }
+                const rms = Math.sqrt(sumSquares / data.length);
+                const boosted = Math.min(1, rms * 2.0);
+                const prev = ttsSmoothedLevelRef.current;
+                const next = prev * 0.86 + boosted * 0.14;
+                ttsSmoothedLevelRef.current = next;
+                setTtsLevel(next);
+
+                ttsRafIdRef.current = requestAnimationFrame(tick);
+            };
+
+            ttsRafIdRef.current = requestAnimationFrame(tick);
+        } catch (e) {
+            console.warn("TTS meter unavailable:", e);
+            stopTtsMeter();
+        }
+    };
 
     const toggleRecording = () => {
         if (isListening) {
@@ -169,7 +368,7 @@ export function VoiceReviewSession({ sessionId, initialQuestion, onComplete }) {
                 className="relative"
             >
                 <Card className="bg-black/40 backdrop-blur-md border-white/10 overflow-hidden">
-                    <div className="absolute top-0 left-0 w-1 h-full bg-gradient-to-b from-orange-400 to-amber-600" />
+                    <div className="absolute top-0 left-0 w-1 h-full bg-linear-to-b from-orange-400 to-amber-600" />
                     <CardContent className="p-8">
                         <div className="flex items-center justify-between mb-4">
                             <span className="text-xs font-mono text-orange-400 uppercase tracking-widest">AI Interviewer</span>
@@ -188,27 +387,24 @@ export function VoiceReviewSession({ sessionId, initialQuestion, onComplete }) {
 
             {/* Visualizer / Status */}
             <div className="flex justify-center h-24 items-center">
-                {isListening ? (
-                    <div className="flex items-center gap-1">
-                        {[...Array(5)].map((_, i) => (
-                            <motion.div
-                                key={i}
-                                className="w-2 bg-gradient-to-t from-orange-500 to-amber-500 rounded-full"
-                                animate={{ height: [10, 40, 10] }}
-                                transition={{
-                                    repeat: Infinity,
-                                    duration: 0.8,
-                                    delay: i * 0.1,
-                                    ease: "easeInOut"
-                                }}
-                            />
-                        ))}
+                <div className="relative">
+                    <div className="h-16 w-16">
+                        <VoiceSphere3D
+                            className="h-full w-full"
+                            level={isListening ? voiceLevel : isSpeaking ? ttsLevel : 0}
+                        />
                     </div>
-                ) : isProcessing ? (
-                    <Loader2 className="h-8 w-8 text-orange-500 animate-spin" />
-                ) : (
-                    <div className="text-gray-500 text-sm font-light">Waiting for your response...</div>
-                )}
+
+                    {isProcessing && (
+                        <div className="absolute inset-0 flex items-center justify-center">
+                            <Loader2 className="h-6 w-6 text-white/90 animate-spin" />
+                        </div>
+                    )}
+
+                    <div className="absolute -bottom-6 left-1/2 -translate-x-1/2 text-xs font-mono text-orange-400/80 uppercase tracking-widest">
+                        {isProcessing ? "Processing" : isListening ? "Listening" : "Ready"}
+                    </div>
+                </div>
             </div>
 
             {/* User Interaction Area */}
@@ -217,7 +413,7 @@ export function VoiceReviewSession({ sessionId, initialQuestion, onComplete }) {
                     "bg-white/5 border-white/10 transition-all duration-300",
                     isListening ? "border-orange-500/30 bg-orange-500/5" : ""
                 )}>
-                    <CardContent className="p-6 min-h-[150px] flex flex-col justify-between">
+                    <CardContent className="p-6 min-h-37.5 flex flex-col justify-between">
                         <div className="text-lg text-gray-200 font-light whitespace-pre-wrap">
                             {transcript || <span className="text-gray-600 italic">Tap the microphone to start speaking...</span>}
                         </div>
