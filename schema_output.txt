@@ -1,8 +1,0 @@
-- date (Date)
-- project_id (String)
-- deployments (UInt64)
-- avg_lead_time_hours (Float64)
-- prs_merged (UInt64)
-- commits (UInt64)
-- story_points_completed (Int64)
-- failed_deployments (UInt64)
